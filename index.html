@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Premium Birthday Journey</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        :root { --primary: #ff4d6d; --secondary: #ffb3c1; --dark: #0a0a0a; --gold: #d4af37; --cake-pink: #ff85a1; --gift-blue: #0077b6; --sky-blue: #ade8f4; }
+        body { margin: 0; background: var(--dark); color: white; font-family: 'Georgia', serif; overflow: hidden; }
+        
+        .page { height: 100vh; width: 100vw; display: flex; flex-direction: column; justify-content: center; align-items: center; position: absolute; transition: all 1s ease-in-out; text-align: center; }
+        .hidden { opacity: 0; pointer-events: none; transform: scale(0.9); }
+        
+        #heart-bg { position: fixed; top: 0; left: 0; pointer-events: none; z-index: -1; }
+
+        #cake-boundary { 
+            border: 2px solid rgba(173, 232, 244, 0.3); 
+            border-radius: 15px; 
+            box-shadow: 0 0 30px var(--sky-blue); 
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.02);
+            margin-bottom: 20px;
+        }
+
+        .balloon-container { position: relative; height: 300px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 20px; }
+        .balloon { font-size: 4rem; cursor: pointer; transition: transform 0.2s, opacity 0.3s; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.3)); animation: float 3s ease-in-out infinite; }
+        
+        .balloon-footer { position: fixed; bottom: -30px; width: 100%; height: 100px; display: flex; align-items: flex-end; pointer-events: none; z-index: 5; overflow: visible; }
+        .grad-balloon {
+            width: 60px; height: 80px; border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%;
+            position: absolute; animation: floatFooter 4s ease-in-out infinite; opacity: 0.9;
+        }
+        .grad-balloon::after { content: ''; position: absolute; bottom: -12px; left: 50%; width: 1px; height: 25px; background: rgba(255,255,255,0.3); }
+
+        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-20px); } }
+        @keyframes floatFooter { 0%, 100% { transform: translateY(0px) rotate(2deg); } 50% { transform: translateY(-40px) rotate(-2deg); } }
+
+        .gallery-container { position: relative; width: 320px; height: 420px; perspective: 1200px; margin: 20px auto; }
+        .slider-wrapper { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; }
+        .slide { 
+            position: absolute; width: 100%; height: 100%; border: 8px solid white; border-radius: 5px; 
+            overflow: hidden; transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .slide img { width: 100%; height: 100%; object-fit: cover; }
+        .slide.active { transform: translateZ(0) rotateY(0deg); z-index: 10; opacity: 1; }
+        .slide.prev { transform: translateX(-115%) rotateY(40deg) scale(0.8); z-index: 5; opacity: 0.5; }
+        .slide.next { transform: translateX(115%) rotateY(-40deg) scale(0.8); z-index: 5; opacity: 0.5; }
+        .slide.hide { opacity: 0; transform: translateZ(-500px); }
+
+        /* RE-ALIGNED ENVELOPE STYLES */
+        .envelope-container { position: relative; width: 300px; height: 200px; margin: 50px auto; display: flex; justify-content: center; align-items: center; }
+        
+        .envelope-wrapper { 
+            position: relative; width: 100%; height: 100%; background: #ff85a1; cursor: pointer; 
+            transition: 0.5s; border-radius: 0 0 10px 10px; z-index: 2; 
+        }
+        
+        /* Top flap */
+        .envelope-wrapper:before { 
+            content: ""; position: absolute; top: 0; left: 0; z-index: 4; 
+            border-left: 150px solid transparent; border-right: 150px solid transparent; 
+            border-top: 110px solid #ff4d6d; transform-origin: top; transition: all 0.5s 0.3s; 
+        }
+        
+        .envelope-wrapper.open:before { transform: rotateX(180deg); z-index: 1; }
+        
+        /* Side flaps */
+        .envelope-wrapper:after { 
+            content: ""; position: absolute; z-index: 3; bottom: 0; left: 0; width: 0; height: 0; 
+            border-left: 150px solid #ffb3c1; border-right: 150px solid #ffb3c1; 
+            border-bottom: 100px solid #ff99ac; border-radius: 0 0 10px 10px; 
+        }
+        
+        #final-letter { 
+            position: absolute; top: 5px; left: 5%; width: 90%; background: white; color: black; 
+            padding: 20px; box-sizing: border-box; transition: all 0.8s ease; z-index: 2; 
+            opacity: 0; transform: translateY(0); text-align: left; border-top: 5px solid var(--primary);
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        }
+        
+        .envelope-wrapper.open #final-letter { transform: translateY(-130px); opacity: 1; z-index: 5; }
+
+        button { padding: 12px 30px; border-radius: 50px; border: 1.5px solid var(--gold); background: transparent; color: var(--gold); font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 20px; text-transform: uppercase; letter-spacing: 2px; }
+        button:hover { background: var(--gold); color: black; box-shadow: 0 0 20px var(--gold); }
+    </style>
+</head>
+<body>
+
+    <canvas id="heart-bg"></canvas>
+    <audio id="bg-music" loop><source src="nanbiye.mp3" type="audio/mpeg"></audio>
+
+    <div class="balloon-footer" id="footer-balloons"></div>
+
+    <div id="p0" class="page">
+        <h1 style="color: var(--gold); letter-spacing: 5px; font-weight: 300;">HAPPY BIRTHDAY MADAM JII</h1>
+        <div id="cake-boundary">
+            <div id="cake-container" style="width:350px; height:45vh;"></div>
+        </div>
+        <p id="cake-msg" style="color: var(--secondary); font-style: italic;">🎈🎈Tap the candle to start your journey....</p>
+        <button id="btn-p1" class="hidden" onclick="showPage('p1')">Enter Surprise</button>
+    </div>
+
+    <div id="p1" class="page hidden">
+        <h2 style="color: var(--secondary);">Pop the balloons to reveal your secret message!!</h2>
+        <div class="balloon-container">
+            <div class="balloon" onclick="realPop(this, 'Forever ')">🎈</div>
+            <div class="balloon" onclick="realPop(this, 'My ')">🎈</div>
+            <div class="balloon" onclick="realPop(this, 'constant ')">🎈</div>
+            <div class="balloon" onclick="realPop(this, 'Sunshineee! ❤️')">🎈</div>
+        </div>
+        <div id="msg-reveal" style="font-size: 1.8rem; margin-top: 25px; color: white; text-shadow: 0 0 10px var(--primary);"></div>
+        <button id="btn-p2" class="hidden" onclick="showPage('p2'); initGift();">Next Step</button>
+    </div>
+
+    <div id="p2" class="page hidden">
+        <div id="gift-container" style="width:100%; height:50vh;"></div>
+        <p style="color: var(--gold);">Tap the gift to open your memories</p>
+    </div>
+
+    <div id="p3" class="page hidden">
+        <div class="gallery-container">
+            <div class="slider-wrapper" id="slider">
+                <div class="slide"><img src="photo1.jpeg"></div>
+                <div class="slide"><img src="photo2.jpeg"></div>
+                <div class="slide"><img src="photo3.jpeg"></div>
+                <div class="slide"><img src="photo4.jpeg"></div>
+                <div class="slide"><img src="photo5.jpeg"></div>
+                <div class="slide"><img src="photo6.jpeg"></div>
+                <div class="slide"><img src="photo7.jpeg"></div>
+                <div class="slide"><img src="photo8.jpeg"></div>
+                <div class="slide"><img src="photo9.jpeg"></div>
+                <div class="slide"><img src="photo10.jpeg"></div>
+                <div class="slide"><img src="photo11.jpeg"></div>
+                <div class="slide"><img src="photo12.jpeg"></div>
+            </div>
+        </div>
+        <p style="margin-top:25px; font-style: italic; opacity: 0.9;">"Un kooda irukura ovvoru nimishavum ennaku special..."</p>
+        <div style="margin-top: 15px;">
+            <button onclick="move3D(-1)">PREV</button>
+            <button onclick="move3D(1)">NEXT</button>
+        </div>
+        <button id="btn-p4" class="hidden" onclick="showPage('p4')" style="border-color: var(--primary); color: var(--primary);">Final Secret 💌</button>
+    </div>
+
+    <div id="p4" class="page hidden">
+        <p style="color: var(--secondary); margin-bottom: 20px;">Tap the envelope to read your secret message</p>
+        <div class="envelope-container">
+            <div class="envelope-wrapper" onclick="openEnvelope()">
+                <div id="final-letter">
+                    <h3 style="color: #ff4d6d; margin: 0 0 10px 0; font-size: 1.2rem;">Happy Birthday madamm jii!</h3>
+                    <p style="font-size: 0.9rem; line-height: 1.4; color: #333; margin: 0;">May your life be as sweet as this cake and as bright as these memories. Thank you for being such a special part of my journey. Thank you for being my bestest best friend for 4 years and i would like to continue our friendship till my last minute of my life, just forgive for everythin i have done to you...   ❤️</p>
+                    <button onclick="location.reload()" style="font-size: 0.7rem; padding: 5px 15px; color:black; border-color: black; margin-top: 15px; width: 100%;">Restart  our  Journey</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. FOOTER BALLOONS ---
+        const footer = document.getElementById('footer-balloons');
+        const colors = ['linear-gradient(135deg, #ff0055, #ffdd00)', 'linear-gradient(135deg, #00dbde, #fc00ff)', 'linear-gradient(135deg, #f9d423, #ff4e50)', 'linear-gradient(135deg, #4facfe, #00f2fe)'];
+        for(let i=0; i<15; i++) {
+            const b = document.createElement('div'); b.className = 'grad-balloon';
+            b.style.left = `${(i * 7) - 2}%`; b.style.background = colors[i % colors.length];
+            b.style.animationDelay = `${Math.random() * 2}s`; b.style.animationDuration = `${3 + Math.random() * 2}s`;
+            footer.appendChild(b);
+        }
+
+        // --- 2. HEART BACKGROUND ---
+        const canvas = document.getElementById('heart-bg'); const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        const hearts = [];
+        class Heart {
+            constructor() { this.reset(); }
+            reset() { this.x = Math.random() * canvas.width; this.y = canvas.height + 20; this.size = Math.random() * 12 + 10; this.speed = Math.random() * 1.5 + 0.8; this.opacity = Math.random() * 0.4 + 0.1; }
+            draw() { ctx.fillStyle = `rgba(255, 77, 109, ${this.opacity})`; ctx.font = `${this.size}px serif`; ctx.fillText('❤️', this.x, this.y); }
+            update() { this.y -= this.speed; if (this.y < -20) this.reset(); }
+        }
+        for(let i=0; i<25; i++) hearts.push(new Heart());
+        function animHearts() { ctx.clearRect(0,0,canvas.width, canvas.height); hearts.forEach(h => { h.draw(); h.update(); }); requestAnimationFrame(animHearts); }
+        animHearts();
+
+        // --- 3. THREE.JS CAKE ---
+        let cScene, cCamera, cRenderer, fireParticles = [], isLit = false;
+        function initCake() {
+            cScene = new THREE.Scene();
+            const container = document.getElementById('cake-container');
+            cCamera = new THREE.PerspectiveCamera(75, 350 / (window.innerHeight*0.45), 0.1, 1000);
+            cRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            cRenderer.setSize(350, window.innerHeight*0.45);
+            container.appendChild(cRenderer.domElement);
+
+            const cakeGroup = new THREE.Group();
+            const pinkMat = new THREE.MeshStandardMaterial({color: 0xff85a1}); 
+            const creamMat = new THREE.MeshStandardMaterial({color: 0xffffff});
+
+            const bot = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 1.2, 32), pinkMat);
+            const drip = new THREE.Mesh(new THREE.CylinderGeometry(1.65, 1.65, 0.4, 32), creamMat);
+            drip.position.y = 0.5;
+            
+            for(let i=0; i<8; i++) {
+                const dollop = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 12), creamMat);
+                dollop.position.set(Math.cos(i/8 * Math.PI * 2) * 1.3, 0.7, Math.sin(i/8 * Math.PI * 2) * 1.3);
+                cakeGroup.add(dollop);
+            }
+
+            const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.7, 12), new THREE.MeshStandardMaterial({color: 0xffffff}));
+            candle.position.y = 1.0; cakeGroup.add(bot, drip, candle);
+            cScene.add(cakeGroup, new THREE.AmbientLight(0xffffff, 0.8), new THREE.PointLight(0xffffff, 1.2, 10));
+            cCamera.position.set(0, 1.5, 5); cCamera.lookAt(0, 0, 0);
+
+            function createFlame() {
+                const p = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), new THREE.MeshBasicMaterial({color: 0xffaa00, transparent: true}));
+                p.position.set(0, 1.35, 0); cScene.add(p); return {mesh: p, life: 1};
+            }
+
+            function anim() {
+                requestAnimationFrame(anim);
+                cakeGroup.rotation.y += 0.007;
+                if(isLit) {
+                    if(fireParticles.length < 15) fireParticles.push(createFlame());
+                    fireParticles.forEach((p, i) => {
+                        p.life -= 0.03; p.mesh.position.y += 0.02; p.mesh.scale.set(p.life, p.life, p.life);
+                        if(p.life <= 0) { cScene.remove(p.mesh); fireParticles.splice(i, 1); }
+                    });
+                }
+                cRenderer.render(cScene, cCamera);
+            } anim();
+
+            cRenderer.domElement.onclick = () => {
+                if(!isLit) {
+                    isLit = true; confetti(); 
+                    document.getElementById('bg-music').play().catch(()=>{});
+                    setTimeout(() => document.getElementById('btn-p1').classList.remove('hidden'), 1200);
+                }
+            };
+        }
+
+        // --- 4. NAVIGATION & POP ---
+        let pops = 0;
+        function realPop(el, word) {
+            confetti({ origin: { x: el.getBoundingClientRect().left / window.innerWidth, y: 0.5 } });
+            el.style.transform = "scale(2.5)"; el.style.opacity = "0";
+            setTimeout(() => el.style.display = 'none', 150);
+            document.getElementById('msg-reveal').innerHTML += word;
+            if(++pops === 4) document.getElementById('btn-p2').classList.remove('hidden');
+        }
+
+        function showPage(id) {
+            document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+            if(id === 'p3') move3D(0);
+        }
+
+        let cur = 0;
+        function move3D(dir) {
+            const slides = document.querySelectorAll('.slide');
+            cur = (cur + dir + slides.length) % slides.length;
+            slides.forEach((s, i) => {
+                s.className = 'slide';
+                if(i === cur) s.classList.add('active');
+                else if(i === cur-1 || (cur === 0 && i === slides.length-1)) s.classList.add('prev');
+                else if(i === cur+1 || (cur === slides.length-1 && i === 0)) s.classList.add('next');
+                else s.classList.add('hide');
+            });
+            if(cur === slides.length-1) document.getElementById('btn-p4').classList.remove('hidden');
+        }
+
+        // --- 5. GIFT BOX ---
+        let lid, giftOpen = false;
+        function initGift() {
+            const gScene = new THREE.Scene();
+            const gCam = new THREE.PerspectiveCamera(75, window.innerWidth/(window.innerHeight*0.5), 0.1, 1000);
+            const gRen = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            gRen.setSize(window.innerWidth, window.innerHeight*0.5);
+            document.getElementById('gift-container').appendChild(gRen.domElement);
+            const giftGroup = new THREE.Group();
+            const blueMat = new THREE.MeshStandardMaterial({color: 0x0077b6}); 
+            const whiteMat = new THREE.MeshStandardMaterial({color: 0xffffff});
+            const box = new THREE.Mesh(new THREE.BoxGeometry(2,1.8,2), blueMat);
+            lid = new THREE.Group();
+            const lidBase = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.4, 2.2), blueMat);
+            const r1 = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.42, 2.22), whiteMat);
+            const r2 = new THREE.Mesh(new THREE.BoxGeometry(2.22, 0.42, 0.42), whiteMat);
+            lid.add(lidBase, r1, r2); lid.position.y = 1.1;
+            const ribV1 = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.8, 2.02), whiteMat);
+            const ribV2 = new THREE.Mesh(new THREE.BoxGeometry(2.02, 1.8, 0.4), whiteMat);
+            giftGroup.add(box, lid, ribV1, ribV2);
+            gScene.add(giftGroup, new THREE.AmbientLight(0xffffff, 1), new THREE.PointLight(0xffffff, 1)); 
+            gCam.position.z = 5;
+            let time = 0;
+            function a() { 
+                requestAnimationFrame(a); time += 0.02;
+                if(!giftOpen) giftGroup.rotation.y = Math.sin(time) * 0.8; 
+                else { lid.position.y += 0.15; lid.rotation.x += 0.1; giftGroup.scale.multiplyScalar(0.98); }
+                gRen.render(gScene, gCam); 
+            } a();
+            gRen.domElement.onclick = () => { if(!giftOpen) { giftOpen = true; confetti(); setTimeout(() => showPage('p3'), 1000); } };
+        }
+
+        // --- 6. FINAL ENVELOPE ---
+        function openEnvelope() {
+            const wrapper = document.querySelector('.envelope-wrapper');
+            if(!wrapper.classList.contains('open')) {
+                wrapper.classList.add('open');
+                confetti({particleCount: 150, spread: 70, origin: {y: 0.8}});
+            }
+        }
+
+        window.onload = initCake;
+    </script>
+</body>
+</html>
